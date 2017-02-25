@@ -1,120 +1,119 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from time import sleep
+import time
 
 import btcchina
 
 SLEEP_TIME = 1
-DEPTH = 3
+DEPTH = 10
+TIME_THREAD = 15 * 60  # N minutes
+# GAP = 1*60
+GAP = 10
+WARNING_THREAD = 300
 
 my_MAX = -1
 my_MIN = 6147483200
 
-access_key = "your_access_key"
-secret_key = "your_se3r3t_key"
+access_key = "ec89da01-20bb-4428-8a1c-a0fca327d46d"
+secret_key = "b262832a-0226-4583-9dd8-0e6c44b76685"
 
-bc = btcchina.BTCChina(access_key,secret_key)
+bc = btcchina.BTCChina(access_key, secret_key)
 
 
 def debug_print(s):
     print "[>>>]", s
 
+
 ''' These methods have no arguments '''
+
+
 # result = bc.get_account_info()
 # print result
+def sortedDictKey(adict):
+    keys = adict.keys()
+    keys.sort()
+    return keys
 
-while(True):
+def getMAIX(mlist):
+    if len(mlist)==0:
+        return 0,0
+    vmax=mlist[0]
+    vmin=mlist[0]
+    for v in mlist:
+        if v>vmax:
+            vmax = v
+        if v<vmin:
+            vmin = v
+    return vmin, vmax
+
+
+def abstract_price(list):
+    re = []
+    for item in list:
+        re.append(item['price'])
+    return re
+
+
+def update(dict, date, TIME_THREAD):
+    for key in dict.keys():
+        if abs(dict[key]-date) > TIME_THREAD:
+            dict.pop(key)
+
+
+def merge(dict, list, date):
+    for item in list:
+        if item not in dict.keys():
+            dict[item] = date
+
+
+ask_dict = {}
+bid_dict = {}
+while True:
     ask_list = []
     bid_list = []
-
     result = bc.get_market_depth2(DEPTH)
+
     ask = result["market_depth"]["ask"]
     bid = result["market_depth"]["bid"]
+    date = result["market_depth"]['date']
+    human_date = time.localtime(date)
+    # human_date_str = time.strftime('%Y%m%d>%H:%M:%S', human_date)
+    human_date_str = time.strftime('%H:%M:%S', human_date)
+    ask_price_list = abstract_price(ask)
+    bid_price_list = abstract_price(bid)
+    print '>'*6, time.strftime('%Y-%m-%d %H:%M:%S', human_date), '<'*6
+    # print ask_price_list
+    # print bid_price_list
+    """
+        先update删除超过TIME_THREAD的旧数据
+        再通过merge更新数据。
+
+        若先merge,再update。则存在一种情况：
+            当旧value和新value等值，因dict中已有旧值，故不再插入新value，但其时间戳为旧，
+            因此在update时若超过TIME_THREAD，该值被删，导致数据缺失: dict == {}
+            这中情况在横盘时易发生。
+    """
+    update(ask_dict, date, TIME_THREAD)
+    # update(bid_dict, date, TIME_THREAD)
+    merge(ask_dict, ask_price_list, date)
+    # merge(bid_dict, bid_price_list, date)
+    # print ask_dict
+    # print bid_dict
+    ask_keys = sortedDictKey(ask_dict)
+    # bid_keys = sortedDictKey(bid_dict)
+    print 'ask::', '[%.2f, %.2f]' % getMAIX(ask_keys), '>', ask_keys
+    print 'bid::', '[%.2f, %.2f]' % getMAIX(bid_price_list), '>', bid_price_list
+
+
+    # print bid
+
+    # update(result, ask_dict, TIME_THREAD, my_MAX)
+    # debug_print(ask_dict)
 
     # --------------------------
     # print '-'*10
-    print ''
-    for item in ask[::-1]:
-        ask_list.append(item['price'])
-
-    if my_MAX < ask_list[-1]:
-        my_MAX = ask_list[-1]
-    print 'ask::', ask_list
-    print 'my_MAX::', my_MAX
-
-    # print '***************'
-
-    for item in bid:
-        # print item['price'], item['amount']
-        bid_list.append(item['price'])
-    print 'bid::', bid_list
-    if my_MIN> bid_list[0]:
-        my_MIN = bid_list[0]
-    print 'my_MIN::', my_MIN
-    # print '-'*10
-    # --------------------------
-    print 'Δ:', my_MAX-my_MIN, '@', result["market_depth"]['date']
+    # print 'Δ:', my_MAX - my_MIN, '@', result["market_depth"]['date']
     # print result["market_depth"]['date']
-    print ''
 
     sleep(SLEEP_TIME)
- 
-# NOTE: for all methods shown here, the transaction ID could be set by doing
-# result = bc.get_account_info(post_data={'id':'stuff'})
-# print result
- 
-''' buy and sell require price (CNY, 5 decimals) and amount (LTC/BTC, 8 decimals) '''
-# 买卖操作
-#result = bc.buy(500,1)
-#print result
-#result = bc.sell(500,1)
-#print result
- 
-''' cancel requires id number of order '''
-# 取消对应id的交易 id元素在order[]末尾
-#result = bc.cancel(2)
-#print result
- 
-''' request withdrawal requires currency and amount '''
-# 查询提现
-#result = bc.request_withdrawal('BTC',0.1)
-#print result
- 
-''' get deposits requires currency. the optional "pending" defaults to true '''
-# 查询充值
-# result = bc.get_deposits('BTC',pending=False)
-# print result
- 
-''' get orders returns status for one order if ID is specified,
-    otherwise returns all orders, the optional "open_only" defaults to true '''
-# 查询目前卖单  只能打印open单, close单实际上无法打印·
-# result = bc.get_orders()
-# print result
-# result = bc.get_orders(open_only=True)
-# print result
- 
-''' get withdrawals returns status for one transaction if ID is specified,
-    if currency is specified it returns all transactions,
-    the optional "pending" defaults to true '''
-# result = bc.get_withdrawals(2)
-# print result
-# result = bc.get_withdrawals('BTC',pending=True)
-# print result
- 
-''' Fetch transactions by type. Default is 'all'. 
-    Available types 'all | fundbtc | withdrawbtc | fundmoney | withdrawmoney | 
-    refundmoney | buybtc | sellbtc | tradefee'
-    Limit the number of transactions, default value is 10 '''
-# result = bc.get_transactions('all',10)
-# print result
-
-'''get archived order returns a specified id order which is archived,
-   the market default to "BTCCNY" and the "withdetail" default to false,if "withdetail" is specified to "true", the result will include the order's detail'''
-# result = bc.get_archived_order(2,'btccny',False)
-# print result
-
-'''get archived orders returns the orders which order id is less than the specified "less_than_order_id",and the returned amount is defined in "limit",
-   default value is 200, if "withdetail" is specified to "true",
-   the result will include to orders' detail'''
-# result = bc.get_archived_orders('btccny',200,10000,False)
-# print result
