@@ -3,13 +3,13 @@ btcchina-api-python
 
 BTCChina Trade API implementation in Python.
 
-## 依赖
+## 1.依赖
 #### twilio电话预警
 - 需要安装python twilio模块
   - pip install twilio
   
 
-## 输出样例
+## 2.输出样例
 ```
 >>>>>> 时间 <<<<<<
 卖价:: [min, max] > [N分钟内波动区间]
