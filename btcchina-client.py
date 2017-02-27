@@ -3,22 +3,29 @@
 from time import sleep
 import time
 
+from twilio.rest import TwilioRestClient
+
 import btcchina
 
 SLEEP_TIME = 1
-DEPTH = 10
-TIME_THREAD = 15 * 60  # N minutes
+DEPTH = 1
+TIME_THREAD = 30 * 60  # N minutes 检查的时间范围 30*60为最近的30分钟内
 # GAP = 1*60
-GAP = 10
+PRICE_GAP = 300        # 预警价格 当TIME_THREAD时间内价格超过PRICE_GAP时 调用twilio打电话预警
 WARNING_THREAD = 300
 
 my_MAX = -1
 my_MIN = 6147483200
 
-access_key = "ec89da01-20bb-4428-8a1c-a0fca327d46d"
-secret_key = "b262832a-0226-4583-9dd8-0e6c44b76685"
+access_key = "your_key"
+secret_key = "s3cr3t_key"
 
 bc = btcchina.BTCChina(access_key, secret_key)
+
+# Twilio Account
+account_sid = "your_test_sid"
+auth_token = "your_token"
+client = TwilioRestClient(account_sid, auth_token)
 
 
 def debug_print(s):
@@ -35,15 +42,16 @@ def sortedDictKey(adict):
     keys.sort()
     return keys
 
+
 def getMAIX(mlist):
-    if len(mlist)==0:
-        return 0,0
-    vmax=mlist[0]
-    vmin=mlist[0]
+    if len(mlist) == 0:
+        return 0, 0
+    vmax = mlist[0]
+    vmin = mlist[0]
     for v in mlist:
-        if v>vmax:
+        if v > vmax:
             vmax = v
-        if v<vmin:
+        if v < vmin:
             vmin = v
     return vmin, vmax
 
@@ -57,7 +65,7 @@ def abstract_price(list):
 
 def update(dict, date, TIME_THREAD):
     for key in dict.keys():
-        if abs(dict[key]-date) > TIME_THREAD:
+        if abs(dict[key] - date) > TIME_THREAD:
             dict.pop(key)
 
 
@@ -65,6 +73,14 @@ def merge(dict, list, date):
     for item in list:
         if item not in dict.keys():
             dict[item] = date
+
+
+# Make Phone Alert
+def make_alert():
+    call = client.calls.create(to="+8613738020604",  # Any phone number
+                               from_="2312259560 ",  # Must be a valid Twilio number
+                               url="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient")
+    print(call.sid)
 
 
 ask_dict = {}
@@ -82,7 +98,7 @@ while True:
     human_date_str = time.strftime('%H:%M:%S', human_date)
     ask_price_list = abstract_price(ask)
     bid_price_list = abstract_price(bid)
-    print '>'*6, time.strftime('%Y-%m-%d %H:%M:%S', human_date), '<'*6
+    print '>' * 6, time.strftime('%Y-%m-%d %H:%M:%S', human_date), '<' * 6
     # print ask_price_list
     # print bid_price_list
     """
@@ -95,16 +111,19 @@ while True:
             这中情况在横盘时易发生。
     """
     update(ask_dict, date, TIME_THREAD)
-    # update(bid_dict, date, TIME_THREAD)
+    update(bid_dict, date, TIME_THREAD)
     merge(ask_dict, ask_price_list, date)
-    # merge(bid_dict, bid_price_list, date)
+    merge(bid_dict, bid_price_list, date)
     # print ask_dict
     # print bid_dict
     ask_keys = sortedDictKey(ask_dict)
-    # bid_keys = sortedDictKey(bid_dict)
+    bid_keys = sortedDictKey(bid_dict)
+    bid_min, bid_max = getMAIX(bid_keys)
     print 'ask::', '[%.2f, %.2f]' % getMAIX(ask_keys), '>', ask_keys
-    print 'bid::', '[%.2f, %.2f]' % getMAIX(bid_price_list), '>', bid_price_list
+    print 'bid::', '[%.2f, %.2f]' % (bid_min, bid_max), '>', bid_keys
 
+    if abs(bid_max - bid_min) > PRICE_GAP:
+        make_alert()
 
     # print bid
 
