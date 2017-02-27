@@ -77,7 +77,7 @@ def merge(dict, list, date):
 
 # Make Phone Alert
 def make_alert():
-    call = client.calls.create(to="+8613738020604",  # Any phone number
+    call = client.calls.create(to="+8613788888888",  # Your phone number
                                from_="2312259560 ",  # Must be a valid Twilio number
                                url="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient")
     print(call.sid)
@@ -124,7 +124,7 @@ while True:
 
     if abs(bid_max - bid_min) > PRICE_GAP:
         make_alert()
-
+        exit() # 预警完毕 程序退出
     # print bid
 
     # update(result, ask_dict, TIME_THREAD, my_MAX)
